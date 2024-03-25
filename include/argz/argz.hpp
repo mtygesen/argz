@@ -64,42 +64,43 @@ namespace argz
 
    namespace detail
    {
-      template <class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
-      template <class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
-      
+      struct parse_visitor {
+         const char* const c;
+
+         void operator()(ref<std::string>& x) const { x.get() = c; }
+         void operator()(ref<bool>& x) const { x.get() = std::strcmp(c, "true") == 0; }
+         void operator()(ref<int32_t>& x) const { x.get() = std::stol(c); }
+         void operator()(ref<uint32_t>& x) const { x.get() = std::stoul(c); }
+         void operator()(ref<int64_t>& x) const { x.get() = std::stoll(c); }
+         void operator()(ref<uint64_t>& x) const { x.get() = std::stoull(c); }
+         void operator()(ref_opt<int32_t>& x) const { if (c) x.get().emplace(std::stol(c)); }
+         void operator()(ref_opt<uint32_t>& x) const { if (c) x.get().emplace(std::stoul(c)); }
+         void operator()(ref_opt<int64_t>& x) const { if (c) x.get().emplace(std::stoll(c)); }
+         void operator()(ref_opt<uint64_t>& x) const { if (c) x.get().emplace(std::stoull(c)); }
+         void operator()(ref_opt<std::string>& x) const { if (c) x.get().emplace(c); }
+      };
+
       inline void parse(const char* const c, var& v)
       {
-         if (c) {
-            const std::string_view str{ c };
-            std::visit(overloaded{
-               [&](ref<std::string>& x) { x.get() = str; },
-               [&](ref<bool>& x) { x.get() = str == "true" ? true : false; },
-               [&]<typename T>(ref_opt<T>& x_opt) {
-                  auto temp = T{};
-                  auto temp_var = var{ ref<T>{ temp } };
-                  parse(c, temp_var);
-                  x_opt.get().emplace(std::get<ref<T>>(temp_var).get());
-               },
-               [&](auto& x) { x.get() = static_cast<typename std::decay_t<decltype(x)>::type>(std::stol(std::string(str))); }
-               }, v);
-         }
+         std::visit(parse_visitor{c}, v);
       }
 
+      struct to_string_visitor {
+         std::string operator()(const ref<std::string>& x) const { return x.get(); }
+         std::string operator()(const ref<bool>& x) const { return x.get() ? "true" : "false"; }
+         std::string operator()(const ref<int32_t>& x) const { return std::to_string(x.get()); }
+         std::string operator()(const ref<uint32_t>& x) const { return std::to_string(x.get()); }
+         std::string operator()(const ref<int64_t>& x) const { return std::to_string(x.get()); }
+         std::string operator()(const ref<uint64_t>& x) const { return std::to_string(x.get()); }
+         std::string operator()(const ref_opt<int32_t>& x) const { return x.get().has_value() ? std::to_string(x.get().value()) : ""; }
+         std::string operator()(const ref_opt<uint32_t>& x) const { return x.get().has_value() ? std::to_string(x.get().value()) : ""; }
+         std::string operator()(const ref_opt<int64_t>& x) const { return x.get().has_value() ? std::to_string(x.get().value()) : ""; }
+         std::string operator()(const ref_opt<uint64_t>& x) const { return x.get().has_value() ? std::to_string(x.get().value()) : ""; }
+         std::string operator()(const ref_opt<std::string>& x) const { return x.get().has_value() ? x.get().value() : ""; }
+      };
+
       inline std::string to_string(const var& v) {
-         return std::visit(overloaded {
-            [](const ref<std::string>& x) { return x.get(); },
-            [](const ref_opt<std::string>& x) {
-               const auto has_value = x.get().has_value();
-               if (has_value) return x.get().value();
-               else return std::string{ };
-            },
-            []<typename T>(const ref_opt<T>& x_opt) {
-               const auto has_value = x_opt.get().has_value();
-               if (has_value) return std::to_string(x_opt.get().value());
-               else return std::string{ };
-            },
-            [](const auto& x) { return std::to_string(x.get()); },
-         }, v);
+         return std::visit(to_string_visitor{}, v);
       }
    }
    
@@ -114,6 +115,7 @@ namespace argz
       std::cout << '\n' << R"(-h, --help       write help to console)" << '\n';
       std::cout << R"(-v, --version    write the version to console)" << '\n';
 
+      std::cout << "\nArguments:\n";
       for (auto& [ids, v, h] : opts)
       {
          if (ids.alias != '\0') {
@@ -129,8 +131,8 @@ namespace argz
       std::cout << '\n';
    }
 
-   template <class int_t, class char_ptr_t> requires (std::is_pointer_v<char_ptr_t>)
-   inline void parse(about& about, options& opts, const int_t argc, char_ptr_t argv)
+   template <class int_t, class char_ptr_t, typename = std::enable_if_t<std::is_pointer_v<char_ptr_t>>>
+   inline void parse(about& about, options& opts, const int_t argc, char_ptr_t argv, int fileArgIndex)
    {
       if (argc == 1) {
          if (about.print_help_when_no_options) {
@@ -149,6 +151,8 @@ namespace argz
       };
 
       for (int_t i = 1; i < argc; ++i) {
+         if (i == fileArgIndex) continue;
+
          const char* flag = argv[i];
          if (*flag != '-') {
             throw std::runtime_error("Expected '-'");
