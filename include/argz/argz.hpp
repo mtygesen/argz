@@ -59,7 +59,7 @@ namespace argz
    struct about final {
       std::string_view description{}, version{};
       bool print_help_when_no_options = true;
-      bool help;
+      bool printed_help;
    };
 
    namespace detail
