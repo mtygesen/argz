@@ -59,7 +59,7 @@ namespace argz
    struct about final {
       std::string_view description{}, version{};
       bool print_help_when_no_options = true;
-      bool help{};
+      bool help;
    };
 
    namespace detail
@@ -103,8 +103,9 @@ namespace argz
       }
    }
    
-   inline void help(const about& about, const options& opts)
+   inline void help(about& about, const options& opts)
    {
+      about.printed_help = true;
       std::cout << about.description << '\n';
       std::cout << "Version: " << about.version << '\n';
       
@@ -171,7 +172,6 @@ namespace argz
             }
          }
          if (str.empty()) { break; }
-         
          for (auto& [ids, v, h] : opts) {
             if (ids.id == str) {
                if (std::holds_alternative<ref<bool>>(v)) {
