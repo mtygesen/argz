@@ -21,6 +21,7 @@
 #include <string_view>
 #include <variant>
 #include <vector>
+#include <filesystem>
 
 namespace argz
 {
@@ -36,11 +37,13 @@ namespace argz
       ref<uint32_t>,
       ref<int64_t>,
       ref<uint64_t>,
+      ref<double>,
       ref<std::string>,
       ref_opt<int32_t>,
       ref_opt<uint32_t>,
       ref_opt<int64_t>,
       ref_opt<uint64_t>,
+      ref_opt<double>, 
       ref_opt<std::string>>;
    
    struct ids_t final {
@@ -74,6 +77,7 @@ namespace argz
             std::visit(overloaded{
                [&](ref<std::string>& x) { x.get() = str; },
                [&](ref<bool>& x) { x.get() = str == "true" ? true : false; },
+               [&](ref<double>& x) { x.get() = std::stod(std::string(str)); },
                [&]<typename T>(ref_opt<T>& x_opt) {
                   auto temp = T{};
                   auto temp_var = var{ ref<T>{ temp } };
