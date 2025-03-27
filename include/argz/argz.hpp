@@ -21,7 +21,6 @@
 #include <string_view>
 #include <variant>
 #include <vector>
-#include <filesystem>
 
 namespace argz
 {
