@@ -61,7 +61,8 @@ namespace argz
    struct about final {
       std::string_view description{}, version{};
       bool print_help_when_no_options = true;
-      bool printed_help;
+      bool printed_help = false;
+      bool printed_version = false;
    };
 
    namespace detail
@@ -166,6 +167,7 @@ namespace argz
          }
          if (str == "v" || str == "version") {
             std::cout << "Version: " << about.version << '\n';
+            about.printed_version = true;
             continue;
          }
          if (str.size() == 1) {
