@@ -13,6 +13,7 @@
 #pragma once
 
 #include <cstdint>
+#include <filesystem>
 #include <functional>
 #include <iostream>
 #include <optional>
@@ -38,12 +39,14 @@ namespace argz
       ref<uint64_t>,
       ref<double>,
       ref<std::string>,
+      ref<std::filesystem::path>,
       ref_opt<int32_t>,
       ref_opt<uint32_t>,
       ref_opt<int64_t>,
       ref_opt<uint64_t>,
       ref_opt<double>, 
-      ref_opt<std::string>>;
+      ref_opt<std::string>,
+      ref_opt<std::filesystem::path>>;
    
    struct ids_t final {
       std::string_view id{};
@@ -76,6 +79,7 @@ namespace argz
             const std::string_view str{ c };
             std::visit(overloaded{
                [&](ref<std::string>& x) { x.get() = str; },
+               [&](ref<std::filesystem::path>& x) { x.get() = std::filesystem::path(str); },
                [&](ref<bool>& x) { x.get() = str == "true" ? true : false; },
                [&](ref<double>& x) { x.get() = std::stod(std::string(str)); },
                [&]<typename T>(ref_opt<T>& x_opt) {
@@ -92,9 +96,15 @@ namespace argz
       inline std::string to_string(const var& v) {
          return std::visit(overloaded {
             [](const ref<std::string>& x) { return x.get(); },
+            [](const ref<std::filesystem::path>& x) { return x.get().string(); },
             [](const ref_opt<std::string>& x) {
                const auto has_value = x.get().has_value();
                if (has_value) return x.get().value();
+               else return std::string{ };
+            },
+            [](const ref_opt<std::filesystem::path>& x) {
+               const auto has_value = x.get().has_value();
+               if (has_value) return x.get().value().string();
                else return std::string{ };
             },
             []<typename T>(const ref_opt<T>& x_opt) {
